@@ -1,55 +1,77 @@
 import tensorflow as tf
 from tensorflow import keras
-tf.keras.models.Sequential()
 from tensorflow.keras import layers
 
-img_height = 90
-img_width = 90
+# Set the image dimensions and batch size
+img_height = 100
+img_width = 100
 batch_size = 32
 
-
-train_ds = tf.keras.preprocessing.image_dataset_from_directory(
-    'C:\\Users\\jrmun\Desktop\\Dataset',
-    labels = 'inferred',
-    label_mode = "int",
-    class_names = ["close_look", "forward_look", "left_look", "right_look"],
-    color_mode = 'grayscale',
-    batch_size = batch_size,
-    image_size = (img_height, img_width),
-    seed = 123,
-    validation_split = 0.1,
-    subset = "training",
-)
-
-# Split the training dataset into training and validation subsets
-val_ds = train_ds.take(int(len(train_ds) * 0.1))
-train_ds = train_ds.skip(int(len(train_ds) * 0.1))
-
-
+# Define the model architecture
 model = keras.Sequential([
-    layers.Input((90, 90, 1)),
-    layers.Conv2D(16, 3, padding='same'),
-    layers.Conv2D(32, 3, padding='same'),
-    layers.MaxPooling2D(),
+    layers.Input(shape=(img_height, img_width, 1)),
+    layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
+    layers.BatchNormalization(),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
+    layers.BatchNormalization(),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
+    layers.BatchNormalization(),
+    layers.MaxPooling2D((2, 2)),
     layers.Flatten(),
-    layers.Dense(10),
+    layers.Dense(256, activation='relu'),
+    layers.Dropout(0.5),
+    layers.Dense(4, activation='softmax')
 ])
 
-
+# Compile the model
 model.compile(
-    optimizer=keras.optimizers.Adam(),
-    loss=[
-        keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-    ],
-    metrics=["accuracy"],
+    optimizer=keras.optimizers.Adam(learning_rate=0.001),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
 )
 
+# Load the data and perform data augmentation
+train_datagen = keras.preprocessing.image.ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=10,
+    zoom_range=0.1,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    horizontal_flip=True
+)
+
+train_ds = train_datagen.flow_from_directory(
+    'C:\\Users\\jrmun\\Desktop\\Dataset',
+    target_size=(img_height, img_width),
+    color_mode='grayscale',
+    batch_size=batch_size,
+    class_mode='categorical',
+    shuffle=True,
+    seed=123,
+    subset='training'
+)
+
+val_ds = train_datagen.flow_from_directory(
+    'C:\\Users\\jrmun\\Desktop\\Dataset',
+    target_size=(img_height, img_width),
+    color_mode='grayscale',
+    batch_size=batch_size,
+    class_mode='categorical',
+    shuffle=True,
+    seed=123,
+    subset='validation'
+)
+
+# Train the model
 history = model.fit(
     train_ds,
-    epochs=100,
+    epochs=50,
     validation_data=val_ds,
     verbose=2
 )
+
 
 
 
