@@ -67,10 +67,15 @@ val_ds = train_datagen.flow_from_directory(
 # Train the model
 history = model.fit(
     train_ds,
-    epochs=50,
+    epochs=70,
     validation_data=val_ds,
     verbose=2
 )
+
+# Save the model
+model.save("my_model")
+
+
 
 
 
