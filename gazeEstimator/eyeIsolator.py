@@ -1,66 +1,77 @@
 import cv2
+import tensorflow as tf
 import numpy as np
 
-# Create a VideoCapture object to capture video from the default camera
-cap = cv2.VideoCapture(0)
+# Load the saved model
+model = tf.keras.models.load_model('my_model')
 
-# Load the face and eye cascades for detecting faces and eyes
-face_cascade = cv2.CascadeClassifier('C:\\Users\\jrmun\\PycharmProjects\\GazeEstimation\\haarcascadeXML\\haarcascade_frontalface_default.xml')
-eye_cascade = cv2.CascadeClassifier('C:\\Users\\jrmun\\PycharmProjects\\GazeEstimation\\haarcascadeXML\\haarcascade_eye.xml')
+# Define the labels
+labels = ['forward_look', 'left_look', 'right_look']
 
-# Define the desired size for the eye images
-EYE_SIZE = (250, 250)
-
-while True:
-    # Capture a frame from the camera
-    ret, frame = cap.read()
-
-    # Convert the frame to grayscale for faster processing
+def process_frame(frame):
+    # Convert the frame to grayscale
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Detect faces in the grayscale frame
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
+    # Use Haar cascades to detect the left eye
+    eye_cascade = cv2.CascadeClassifier('C:\\Users\\jrmun\\PycharmProjects\\GazeEstimation\\haarcascadeXML\\haarcascade_eye.xml')
+    eyes = eye_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    for (x, y, w, h) in eyes:
+        if x < frame.shape[1] // 2:  # Only consider the left eye
+            # Draw a bounding box around the eye
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-    # For each detected face, detect eyes and display both eyes in one frame
-    for (x, y, w, h) in faces:
-        # Extract the region of interest corresponding to the face
-        roi_gray = gray[y:y + h, x:x + w]
-        roi_color = frame[y:y + h, x:x + w]
+            # Extract the left eye region
+            eye = gray[y:y + h, x:x + w]
 
-        # Detect eyes in the region of interest
-        eyes = eye_cascade.detectMultiScale(roi_gray, scaleFactor=1.3, minNeighbors=5)
+            # Resize the eye image to the input shape of the model
+            input_shape = model.layers[0].input_shape[1:3]
+            eye = cv2.resize(eye, input_shape)
 
-        # Extract both eyes and concatenate them into one image
-        left_eye = None
-        right_eye = None
-        for (ex, ey, ew, eh) in eyes:
-            eye = roi_color[ey:ey + eh, ex:ex + ew]
-            eye = cv2.resize(eye, EYE_SIZE)
-            if ex < w / 2:
-                if left_eye is None:
-                    left_eye = eye
-                else:
-                    left_eye = np.hstack((left_eye, eye))
-            else:
-                if right_eye is None:
-                    right_eye = eye
-                else:
-                    right_eye = np.hstack((right_eye, eye))
+            # Normalize the pixel values to be between 0 and 1
+            eye = eye / 255.0
 
-        if left_eye is not None and right_eye is not None:
-            # Combine both eyes into one image
-            eye_frame = np.hstack((left_eye, right_eye))
-            cv2.imshow('Eyes', eye_frame)
+            # Add an extra dimension for the batch size
+            eye = np.expand_dims(eye, axis=-1)
+            eye = np.expand_dims(eye, axis=0)
 
-    # Wait for key press and exit if 'q' is pressed
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+            # Make the prediction using the model
+            prediction = model.predict(eye)[0]
 
-# Release the VideoCapture object and destroy all windows
-cap.release()
-cv2.destroyAllWindows()
+            # Convert the predicted probabilities to percentages
+            probabilities = np.round(prediction * 100)
+
+            # Get the index of the label with the highest probability
+            label_index = np.argmax(prediction)
+
+            # Get the label with the highest probability
+            label = labels[label_index]
+
+            # Draw the label and probability on the frame
+            cv2.putText(frame, f"{label} ({probabilities[label_index]:.0f}%)", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+
+    return frame
 
 
+# Define the function to capture frames from the webcam and process them
+def webcam_eye_tracking():
+    cap = cv2.VideoCapture(0)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
 
+        processed_frame = process_frame(frame)
+
+        cv2.imshow('Eye Tracking', processed_frame)
+
+        # Press 'q' to quit
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+webcam_eye_tracking()
 
 
