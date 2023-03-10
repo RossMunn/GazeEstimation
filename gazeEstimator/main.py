@@ -5,6 +5,9 @@ import os
 # Define the path to the directory containing the participant folders
 root_dir = 'C:\\Users\\jrmun\\Desktop\\MPIIGaze\\Data\\Extracted'
 
+# Define the number of epochs to train on each day's data
+num_epochs = 10
+
 # Loop through each participant folder
 for participant_name in os.listdir(root_dir):
     # Define the path to the participant folder
@@ -13,6 +16,9 @@ for participant_name in os.listdir(root_dir):
         continue
 
     print(f'Processing participant {participant_name}...')
+
+    # Initialize the previous day's model to None
+    prev_model = None
 
     # Loop through each day folder in the participant folder
     for day_name in os.listdir(participant_dir):
@@ -51,6 +57,8 @@ for participant_name in os.listdir(root_dir):
             # Load the corresponding image based on the file name
             img_path = os.path.join(img_dir,
                                     f'{img_counter:04d}.jpg')  # Assumes images are named "0001.jpg", "0002.jpg", etc.
+            # Increment the image file counter
+            img_counter += 1
             if os.path.exists(img_path):
                 img = tf.keras.preprocessing.image.load_img(img_path)
                 # Check if the image width is larger than the threshold
@@ -66,8 +74,6 @@ for participant_name in os.listdir(root_dir):
                     print(f'Skipping image {img_path} because its width is too small')
             else:
                 print(f'Could not find image file: {img_path}')
-            # Increment the image file counter
-            img_counter += 1
 
         # Convert the data to NumPy arrays
         x_data = np.array(x_data)
@@ -85,22 +91,30 @@ for participant_name in os.listdir(root_dir):
             tf.keras.layers.MaxPooling2D((2, 2)),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(64, activation='relu'),
-            tf.keras.layers.Dense(2) # Two nodes for x and y values
-])
+            tf.keras.layers.Dense(2)  # Two nodes for x and y values
+        ])
 
         # Compile the model
         model.compile(optimizer='adam',
                       loss='mse',
-                      metrics=['mae', 'mse'])
+                      metrics=[tf.keras.metrics.RootMeanSquaredError()])
+
+        # If there was a previous day's model, load it and set it as the initial weights for the new model
+        if prev_model is not None:
+            model.load_weights(prev_model)
 
         # Train the model
-        model.fit(img_data, [x_data, y_data], epochs=10, validation_split=0.2)
+        model.fit(img_data, [x_data, y_data], epochs=num_epochs, validation_split=0.2)
 
         # Save the model weights and architecture
         model.save(os.path.join(participant_dir, day_name, 'model.h5'))
 
+        # Set the current model as the previous day's model for the next iteration
+        prev_model = os.path.join(participant_dir, day_name, 'model.h5')
+
         print(f'Done processing day {day_name}.\n')
 
     print(f'Done processing participant {participant_name}.\n')
+
 
 
