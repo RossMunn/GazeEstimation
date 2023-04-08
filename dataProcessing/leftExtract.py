@@ -1,86 +1,64 @@
-import cv2
 import os
-import shutil
+import cv2
+import dlib
+import numpy as np
 
-# Define the path to the directory containing the participant folders
-root_dir = 'C:\\Users\\jrmun\\Desktop\\MPIIGaze\\Data\\Original'
+# Load models
+face_detector = dlib.get_frontal_face_detector()
+landmark_predictor = dlib.shape_predictor("C:\\Users\\jrmun\\PycharmProjects\\Disso\haarcascadeXML\\shape_predictor_68_face_landmarks.dat")
 
-# Define the path to the output directory for extracted images
-output_dir = 'C:\\Users\\jrmun\\Desktop\\MPIIGaze\\Data\\Extracted'
 
-# Define the path to the haarcascade file
-cascade_file = 'C:\\Users\\jrmun\\PycharmProjects\\Disso\\haarcascadeXML\\haarcascade_mcs_lefteye.xml'
+def extract_left_eye_patches(image, padding_ratio=0.2):
+    # Detect faces
+    faces = face_detector(image, 1)
 
-# Load the haarcascade classifier
-cascade_classifier = cv2.CascadeClassifier(cascade_file)
+    left_eye_patches = []
+    for face in faces:
+        # Detect landmarks
+        landmarks = landmark_predictor(image, face)
 
-# Loop through each participant folder
-for participant_name in os.listdir(root_dir):
-    # Define the path to the participant folder
-    participant_dir = os.path.join(root_dir, participant_name)
-    if not os.path.isdir(participant_dir):
-        continue
+        # Extract left eye patch
+        left_eye_points = np.array([(landmarks.part(i).x, landmarks.part(i).y) for i in range(36, 42)])
+        left_eye_roi = cv2.boundingRect(left_eye_points)
 
-    print(f'Processing participant {participant_name}...')
+        # Add padding
+        padding_x = int(left_eye_roi[2] * padding_ratio)
+        padding_y = int(left_eye_roi[3] * padding_ratio)
+        x, y, w, h = left_eye_roi
+        x, y = max(0, x - padding_x), max(0, y - padding_y)
+        w, h = min(image.shape[1] - x, w + 2 * padding_x), min(image.shape[0] - y, h + 2 * padding_y)
 
-    # Loop through each day folder in the participant folder
-    for day_name in os.listdir(participant_dir):
-        # Skip the calibration folder
-        if day_name == 'Calibration':
-            continue
+        left_eye_patch = image[y:y + h, x:x + w]
 
-        print(f'Processing day {day_name}...')
+        left_eye_patches.append(left_eye_patch)
 
-        # Define the path to the directory containing the images for this day
-        img_dir = os.path.join(participant_dir, day_name)
+    return left_eye_patches
 
-        # Define the path to the annotations file for this day
-        annot_file = os.path.join(participant_dir, day_name, 'annotation.txt')
 
-        # Create a new directory for the extracted images for this day
-        output_day_dir = os.path.join(output_dir, participant_name, day_name)
-        os.makedirs(output_day_dir, exist_ok=True)
+def process_images(input_folder, output_folder, current_folder=""):
+    current_input_folder = os.path.join(input_folder, current_folder)
+    current_output_folder = os.path.join(output_folder, current_folder)
 
-        # Copy the annotations file to the new directory for this day
-        shutil.copy(annot_file, output_day_dir)
+    for entry in os.scandir(current_input_folder):
+        if entry.is_file() and entry.name.lower().endswith(('.png', '.jpg', '.jpeg')):
+            input_path = entry.path
+            os.makedirs(current_output_folder, exist_ok=True)
 
-        # Load the annotations from the file for this day
-        with open(os.path.join(output_day_dir, 'annotation.txt'), 'r') as f:
-            annotations = [line.strip().split() for line in f]
+            # Load image
+            image = cv2.imread(input_path)
+            left_eye_patches = extract_left_eye_patches(image)
 
-        # Create a counter for the image files
-        img_counter = 1
+            for idx, left_eye_patch in enumerate(left_eye_patches):
+                output_basename = os.path.splitext(entry.name)[0]
+                output_left_eye_patch_path = os.path.join(current_output_folder,
+                                                          f"{output_basename}_left_eye_{idx}.png")
 
-        # Iterate through the annotations and extract the left eye images for this day
-        for annot in annotations:
-            # Load the corresponding image based on the file name
-            img_path = os.path.join(img_dir, f'{img_counter:04d}.jpg')
-            if not os.path.exists(img_path):
-                print(f'Could not find image file: {img_path}')
-                continue
+                cv2.imwrite(output_left_eye_patch_path, left_eye_patch)
 
-            # Load the image and convert to grayscale
-            img = cv2.imread(img_path)
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        elif entry.is_dir():
+            process_images(input_folder, output_folder, os.path.join(current_folder, entry.name))
 
-            # Detect the eyes in the image using the haarcascade classifier
-            eyes = cascade_classifier.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-            # Extract the left eye image if it exists
-            left_eye = None
-            for (x, y, w, h) in eyes:
-                if x < img.shape[1] // 2:  # Check if the eye is on the left side of the image
-                    left_eye = img[y:y+h, x:x+w]
-                    break
-
-            if left_eye is not None:
-                # Save the left eye image to the output directory for this day
-                output_img_path = os.path.join(output_day_dir, f'{img_counter:04d}.jpg')
-                cv2.imwrite(output_img_path, left_eye)
-
-                # Increment the image file counter
-            img_counter += 1
-
-            print(f'Done processing day {day_name} + {img_counter}.\n')
-
-        print(f'Done processing participant {participant_name}.\n')
+input_folder = 'C:\\Users\\jrmun\\Desktop\\Eye_chimeraToPublish'
+output_folder = 'C:\\Users\\jrmun\\Desktop\\Left_Chimera'
+process_images(input_folder, output_folder)

@@ -1,88 +1,101 @@
 import cv2
 import numpy as np
-import tensorflow as tf
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+from tensorflow.keras.models import load_model
 
-# Load the pre-trained model
-model = tf.keras.models.load_model('C:\\Users\\jrmun\\Desktop\\MPIIGaze\\Data\\Extracted\\p14\\day07\\model.h5')
-
-# Load the face and left eye cascades
+# Load the Haar cascade for detecting the face and eyes
 face_cascade = cv2.CascadeClassifier('C:\\Users\\jrmun\\PycharmProjects\\Disso\\haarcascadeXML\\haarcascade_frontalface_default.xml')
 eye_cascade = cv2.CascadeClassifier('C:\\Users\\jrmun\\PycharmProjects\\Disso\\haarcascadeXML\\haarcascade_mcs_lefteye.xml')
 
-# Define the minimum width threshold for the extracted eye image
-min_width = 62
+# Load the MobileNetV2 model for left eye detection
+model = load_model('C:\\Users\\jrmun\\Desktop\\MPIIGaze\\Data\\Extracted\\p14\\day07\\model.h5')
 
-# Define the dimensions for the preprocessed image data
-img_size = (224, 224)
+# Open a video capture object to read from the webcam
+cap = cv2.VideoCapture(0)
 
+while True:
+    # Read a frame from the webcam
+    ret, frame = cap.read()
 
-# Define the function to preprocess the image data
-def preprocess_image(img):
-    img = cv2.resize(img, img_size)
-    img = tf.keras.preprocessing.image.img_to_array(img)
-    img = tf.keras.applications.mobilenet_v2.preprocess_input(img)
-    img = np.expand_dims(img, axis=0)
-    return img
-
-
-# Define the function to extract and preprocess the left eye image
-def extract_left_eye(img, eyes):
-    for (ex, ey, ew, eh) in eyes:
-        # Check if the eye is on the left side of the face
-        if ex < img.shape[1] / 2:
-            # Extract the eye image
-            eye_img = img[ey:ey + eh, ex:ex + ew]
-            # Check if the eye image width is larger than the threshold
-            if eye_img.shape[1] >= min_width:
-                # Preprocess the eye image
-                preprocessed_img = preprocess_image(eye_img)
-                return preprocessed_img
-    return None
-
-
-# Define the function to process each frame of the video stream
-def process_frame(frame):
-    # Convert the frame to grayscale
+    # Convert the frame to grayscale for faster processing
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     # Detect faces in the grayscale frame
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-    # Iterate through the faces and extract the left eye image
+    # Loop through each detected face
     for (x, y, w, h) in faces:
-        # Extract the face image
-        face_img = frame[y:y + h, x:x + w]
-        # Convert the face image to grayscale
-        face_gray = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
-        # Detect eyes in the face image
-        eyes = eye_cascade.detectMultiScale(face_gray, scaleFactor=1.1, minNeighbors=5)
-        # Extract and preprocess the left eye image
-        left_eye_img = extract_left_eye(face_img, eyes)
-        if left_eye_img is not None:
-            # Run the model prediction on the preprocessed left eye image
-            prediction = model.predict(left_eye_img)
-            # Print the predicted x and y values
-            print('Predicted x:', prediction[0][0])
-            print('Predicted y:', prediction[1][0])
+        # Extract the region of interest (ROI) for the face
+        roi_gray = gray[y:y+h, x:x+w]
+        roi_color = frame[y:y+h, x:x+w]
 
-    # Display the processed frame
-    cv2.imshow('frame', frame)
+        # Detect eyes within the face ROI
+        eyes = eye_cascade.detectMultiScale(roi_gray)
 
+        left_eye = None
+        right_eye = None
 
-# Initialize the video capture from the default webcam
-cap = cv2.VideoCapture(0)
+        # Loop through each detected eye
+        for (ex, ey, ew, eh) in eyes:
+            # Check if the eye is on the left side of the face
+            if ex < w/2:
+                # Set left_eye variable if not already set
+                if left_eye is None:
+                    left_eye = (ex, ey, ew, eh)
+                # Otherwise, compare positions to see which eye is more left
+                else:
+                    if ex < left_eye[0]:
+                        left_eye = (ex, ey, ew, eh)
+            # Otherwise, the eye is on the right side of the face
+            else:
+                # Set right_eye variable if not already set
+                if right_eye is None:
+                    right_eye = (ex, ey, ew, eh)
 
-# Loop through each frame of the video stream
-while (True):
-    # Capture a frame from the video stream
-    ret, frame = cap.read()
+        # If only the left eye was detected, preprocess the image and use the model to predict the x and y coordinates
+        if left_eye is not None and right_eye is None:
+            (ex, ey, ew, eh) = left_eye
 
-    # Process the frame
-    process_frame(frame)
+            # Extract the region of interest (ROI) for the left eye
+            eye_gray = roi_gray[ey:ey+eh, ex:ex+ew]
 
-    # Exit the loop if the 'q' key is pressed
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+            # Convert the grayscale eye image to RGB
+            eye_rgb = cv2.cvtColor(eye_gray, cv2.COLOR_GRAY2RGB)
+
+            try:
+                # Preprocess the eye image for input to the model
+                eye_resized = cv2.resize(eye_rgb, (224, 224))
+                eye_array = img_to_array(eye_resized)
+                eye_array = np.expand_dims(eye_array, axis=0)
+                eye_array = preprocess_input(eye_array)
+
+                # Use the model to predict the x and y coordinates of the eye
+                predicted_position = model.predict(eye_array)[0]
+                predicted_x = int(predicted_position[0] * ew + ex)
+                predicted_y = int(predicted_position[1] * eh + ey)
+
+                # Draw a thicker bounding box around the left eye
+                thickness = 2
+                cv2.rectangle(roi_color, (ex, ey), (ex+ew, ey+eh), (0, 255, 0), thickness)
+
+                # Add text showing the predicted x and y coordinates
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.5
+                font_color = (255, 255, 255)
+                line_type = 2
+                cv2.putText(roi_color, f'({predicted_x}, {predicted_y})', (predicted_x, predicted_y), font, font_scale,
+                            font_color, line_type)
+
+            except Exception as e:
+                print(f'Error predicting eye position: {e}')
+
+        # Display the frame with bounding box around the left eye
+        cv2.imshow('frame', frame)
+
+        # Exit if the 'q' key is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 cap.release()
 cv2.destroyAllWindows()
