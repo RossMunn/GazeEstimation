@@ -3,6 +3,8 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.models import load_model
 
 def create_eye_gaze_model():
     model = models.Sequential()
@@ -54,13 +56,13 @@ def plot_training_history(history):
 
 NUM_CLASSES = 7
 data_dir = 'C:\\Users\\jrmun\Desktop\\Left_Chimera'
+test_dir = 'C:\\Users\\jrmun\Desktop\\test_left'
 BATCH_SIZE = 32
 EPOCHS = 100
 target_size = (42, 50)
 
 data_generator = ImageDataGenerator(
     rescale=1./255,
-    rotation_range=20,
     width_shift_range=0.1,
     height_shift_range=0.1,
     shear_range=0.1,
@@ -68,33 +70,26 @@ data_generator = ImageDataGenerator(
     #horizontal_flip=True,
    #vertical_flip=True,  # Add vertical_flip
     brightness_range=(0.8, 1.2),  # Add brightness_range
-    fill_mode='nearest',
-    validation_split=0.2
+    fill_mode='nearest'
 )
-
 
 train_generator = data_generator.flow_from_directory(
     data_dir,
     target_size=target_size,
     batch_size=BATCH_SIZE,
     class_mode='categorical',
-    color_mode='grayscale',
-    subset='training'
+    color_mode='grayscale'
 )
 
-validation_generator = data_generator.flow_from_directory(
-    data_dir,
+validation_datagen = ImageDataGenerator(rescale=1./255)
+
+validation_generator = validation_datagen.flow_from_directory(
+    test_dir,
     target_size=target_size,
     batch_size=BATCH_SIZE,
     class_mode='categorical',
-    color_mode='grayscale',
-    subset='validation'
+    color_mode='grayscale'
 )
-
-
-
-
-
 
 eye_gaze_model = create_eye_gaze_model()
 
@@ -104,21 +99,56 @@ eye_gaze_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01, mom
 
 eye_gaze_model.summary()
 
+#Add the ModelCheckpoint callback
+model_checkpoint_callback = ModelCheckpoint(
+filepath='C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model.h5',
+save_best_only=True,
+monitor='val_accuracy',
+mode='max',
+verbose=1
+)
+
 history = eye_gaze_model.fit(
-    train_generator,
-    steps_per_epoch=train_generator.samples // BATCH_SIZE,
-    validation_data=validation_generator,
-    validation_steps=validation_generator.samples // BATCH_SIZE,
-    epochs=EPOCHS
+train_generator,
+steps_per_epoch=train_generator.samples // BATCH_SIZE,
+validation_data=validation_generator,
+validation_steps=validation_generator.samples // BATCH_SIZE,
+epochs=EPOCHS,
+callbacks=[model_checkpoint_callback] # Add the callback here
 )
 
 plot_training_history(history)
 
-eye_gaze_model.save('eye_gaze_model.h5')
+eye_gaze_model.save('C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\eye_gaze_model.h5')
 
-from tensorflow.keras.models import load_model
+#Load the saved model
+loaded_model = load_model('C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model.h5')
 
-loaded_model = load_model('eye_gaze_model.h5')
+#Load the test data using a separate ImageDataGenerator
+test_datagen = ImageDataGenerator(rescale=1./255)
 
+test_generator = test_datagen.flow_from_directory(
+test_dir,
+target_size=(42, 50),
+batch_size=BATCH_SIZE,
+class_mode='categorical',
+color_mode='grayscale',
+shuffle=False
+)
+
+#Make predictions on the test data
+y_pred = loaded_model.predict(test_generator)
+
+#Load the true class labels for the test data
+y_true = test_generator.classes
+
+#Convert the predicted probabilities to class labels
+import numpy as np
+y_pred_labels = np.argmax(y_pred, axis=1)
+
+#Print the classification report
+from sklearn.metrics import classification_report
+target_names = test_generator.class_indices.keys()
+print(classification_report(y_true, y_pred_labels, target_names=target_names))
 
 

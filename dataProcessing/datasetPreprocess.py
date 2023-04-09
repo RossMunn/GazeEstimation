@@ -1,42 +1,32 @@
-
 import os
 import shutil
-import csv
+from random import sample
 
-# Define the paths to the original and labeled data folders
-original_data_path = r'C:\\Users\\jrmun\\Desktop\\MPIIGaze\\Data\\Original'
-labeled_data_path = r'C:\\Users\\jrmun\\Desktop\\processeddataset'
 
-# Define a dictionary to map label names to folder names
-label_folder_map = {
-    'Up': 'Up',
-    'Down': 'Down',
-    'Left': 'Left',
-    'Right': 'Right'
-}
+def create_test_set(input_folder, output_folder, test_ratio=0.2):
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
 
-# Loop over each row in the CSV file
-with open('C:\\Users\\jrmun\\Desktop\\MPIIGaze\\Up_Down_Right_Left.csv', 'r') as csv_file:
-    csv_reader = csv.reader(csv_file)
-    next(csv_reader)  # Skip the header row
-    for row in csv_reader:
-        day = int(float(row[0]))
-        image_number = int(float(row[1]))
-        label = row[2]
-        person = row[3]
+    subfolders = [f for f in os.listdir(input_folder) if os.path.isdir(os.path.join(input_folder, f))]
 
-        # If the label is not recognized, skip this row
-        if label not in label_folder_map:
-            print(f'Skipping row with unknown label: {label}')
-            continue
+    for subfolder in subfolders:
+        input_subfolder = os.path.join(input_folder, subfolder)
+        output_subfolder = os.path.join(output_folder, subfolder)
 
-        # Define the paths to the original and labeled image files
-        original_image_path = os.path.join(original_data_path, person, f'day{day:02d}', f'{image_number:04d}.jpg')
-        labeled_image_path = os.path.join(labeled_data_path, label_folder_map[label], f'{person}_day{day:02d}_{image_number:04d}.jpg')
+        if not os.path.exists(output_subfolder):
+            os.makedirs(output_subfolder)
 
-        # Create the folder for the labeled image, if it doesn't already exist
-        os.makedirs(os.path.dirname(labeled_image_path), exist_ok=True)
+        all_files = [f for f in os.listdir(input_subfolder) if os.path.isfile(os.path.join(input_subfolder, f))]
+        test_files_count = int(len(all_files) * test_ratio)
+        test_files = sample(all_files, test_files_count)
 
-        # Copy the original image to the labeled image folder
-        shutil.copy(original_image_path, labeled_image_path)
-        print(f'Copied {original_image_path} to {labeled_image_path}')
+        for test_file in test_files:
+            src_file = os.path.join(input_subfolder, test_file)
+            dst_file = os.path.join(output_subfolder, test_file)
+            shutil.move(src_file, dst_file)
+
+
+input_folder = "C:\\Users\\jrmun\\Desktop\\Left_Chimera"
+output_folder = "C:\\Users\\jrmun\\Desktop\\test_left"
+
+create_test_set(input_folder, output_folder)
