@@ -58,7 +58,7 @@ NUM_CLASSES = 7
 data_dir = 'C:\\Users\\jrmun\Desktop\\Left_Chimera'
 test_dir = 'C:\\Users\\jrmun\Desktop\\test_left'
 BATCH_SIZE = 32
-EPOCHS = 100
+EPOCHS = 80
 target_size = (42, 50)
 
 data_generator = ImageDataGenerator(
@@ -68,7 +68,7 @@ data_generator = ImageDataGenerator(
     shear_range=0.1,
     zoom_range=0.1,
     #horizontal_flip=True,
-   #vertical_flip=True,  # Add vertical_flip
+    #vertical_flip=True,
     brightness_range=(0.8, 1.2),  # Add brightness_range
     fill_mode='nearest'
 )
