@@ -5,7 +5,7 @@ import numpy as np
 
 # Load models
 face_detector = dlib.get_frontal_face_detector()
-landmark_predictor = dlib.shape_predictor("C:\\Users\\jrmun\\PycharmProjects\\Disso\haarcascadeXML\\shape_predictor_68_face_landmarks.dat")
+landmark_predictor = dlib.shape_predictor("C:\\Users\\jrmun\\PycharmProjects\\Disso\\extractorModels\\shape_predictor_68_face_landmarks.dat")
 
 
 def extract_left_eye_patches(image, padding_ratio=0.2):
