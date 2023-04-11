@@ -55,7 +55,7 @@ def plot_training_history(history):
     plt.show()
 
 NUM_CLASSES = 7
-data_dir = 'C:\\Users\\jrmun\Desktop\\Left_Chimera'
+data_dir = 'C:\\Users\\jrmun\Desktop\\train_left'
 test_dir = 'C:\\Users\\jrmun\Desktop\\test_left'
 BATCH_SIZE = 32
 EPOCHS = 80
@@ -101,7 +101,7 @@ eye_gaze_model.summary()
 
 #Add the ModelCheckpoint callback
 model_checkpoint_callback = ModelCheckpoint(
-filepath='C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model.h5',
+filepath='C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model_left.h5',
 save_best_only=True,
 monitor='val_accuracy',
 mode='max',
@@ -119,10 +119,8 @@ callbacks=[model_checkpoint_callback] # Add the callback here
 
 plot_training_history(history)
 
-eye_gaze_model.save('C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\eye_gaze_model.h5')
-
 #Load the saved model
-loaded_model = load_model('C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model.h5')
+loaded_model = load_model('C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model_left.h5')
 
 #Load the test data using a separate ImageDataGenerator
 test_datagen = ImageDataGenerator(rescale=1./255)
@@ -150,5 +148,3 @@ y_pred_labels = np.argmax(y_pred, axis=1)
 from sklearn.metrics import classification_report
 target_names = test_generator.class_indices.keys()
 print(classification_report(y_true, y_pred_labels, target_names=target_names))
-
-
