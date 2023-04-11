@@ -83,8 +83,28 @@ while True:
         # Calculate the average score
         score = (prediction_left + prediction_right) / 2
 
-        # Find the class with the maximum probability
-        eye_direction = class_labels[np.argmax(score)]
+        # Combine the upleft and upright predictions into an up prediction, and the downright and downleft predictions into a down prediction
+        upleft_index = list(class_labels.keys())[list(class_labels.values()).index('02.UpLeft')]
+        upright_index = list(class_labels.keys())[list(class_labels.values()).index('01.UpRight')]
+        downleft_index = list(class_labels.keys())[list(class_labels.values()).index('06.DownLeft')]
+        downright_index = list(class_labels.keys())[list(class_labels.values()).index('05.DownRight')]
+        left_index = list(class_labels.keys())[list(class_labels.values()).index('04.Left')]
+        right_index = list(class_labels.keys())[list(class_labels.values()).index('03.Right')]
+        center_index = list(class_labels.keys())[list(class_labels.values()).index('00.Centre')]
+
+        if np.argmax(score) in (upleft_index, upright_index):
+            eye_direction = 'Up'
+        elif np.argmax(score) in (downleft_index, downright_index):
+            eye_direction = 'Down'
+        elif np.argmax(score) == left_index:
+            eye_direction = 'Left'
+        elif np.argmax(score) == right_index:
+            eye_direction = 'Right'
+        elif np.argmax(score) == center_index:
+            eye_direction = 'Centre'
+        else:
+            # Find the class with the maximum probability
+            eye_direction = class_labels[np.argmax(score)]
 
         cv2.putText(frame, eye_direction, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
@@ -95,6 +115,4 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
-
-
 
