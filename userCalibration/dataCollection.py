@@ -12,13 +12,13 @@ landmark_predictor = dlib.shape_predictor("C:\\Users\\jrmun\\PycharmProjects\\Di
 # Open the webcam
 cap = cv2.VideoCapture(0)
 
-directions = ["Centre", "Left", "Right", "UpRight", "UpLeft", "DownRight", "DownLeft"]
+directions = ["00.Centre", "01.UpRight", "02.UpLeft", "03.Right", "04.Left", "05.DownRight", "06.DownLeft"]
 
 # Create folders for each direction
 for direction in directions:
     os.makedirs(os.path.join(output_folder, direction), exist_ok=True)
 
-def extract_left_eye(frame, landmarks):
+def extract_left_eye(frame, landmarks, padding_ratio=0.2):
     # Left eye landmarks (from 36 to 41)
     points = landmarks.parts()[36:42]
     x_coords = [point.x for point in points]
@@ -28,7 +28,19 @@ def extract_left_eye(frame, landmarks):
     x_min, x_max = min(x_coords), max(x_coords)
     y_min, y_max = min(y_coords), max(y_coords)
 
-    # Crop the left eye region
+    # Calculate padding
+    width = x_max - x_min
+    height = y_max - y_min
+    padding_x = int(padding_ratio * width)
+    padding_y = int(padding_ratio * height)
+
+    # Add padding to the bounding rectangle
+    x_min = max(x_min - padding_x, 0)
+    x_max = min(x_max + padding_x, frame.shape[1])
+    y_min = max(y_min - padding_y, 0)
+    y_max = min(y_max + padding_y, frame.shape[0])
+
+    # Crop the left eye region with padding
     left_eye = frame[y_min:y_max, x_min:x_max]
 
     return left_eye
