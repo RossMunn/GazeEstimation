@@ -59,13 +59,16 @@ def display_countdown(frame, seconds_left):
 
     cv2.putText(frame, text, (x, y), font, 1, (255, 255, 255), 2)
 
+images_per_direction = 32
+
 for direction in directions:
     print(f"Look at the {direction} direction.")
 
     countdown_start = time.time()
     countdown_seconds = 5
+    image_count = 0
 
-    while True:
+    while image_count < images_per_direction:
         # Capture frame from the webcam
         ret, frame = cap.read()
 
@@ -92,8 +95,10 @@ for direction in directions:
                 left_eye_image = extract_left_eye(frame, landmarks)
 
                 save_image(direction, left_eye_image)
+                image_count += 1
 
-                break
+                if image_count == images_per_direction:
+                    break
 
         # Display the frame
         cv2.imshow("Direction Gaze Calibration", frame)
@@ -105,3 +110,7 @@ for direction in directions:
 
 cap.release()
 cv2.destroyAllWindows()
+
+
+
+
