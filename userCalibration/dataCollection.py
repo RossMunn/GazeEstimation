@@ -3,7 +3,7 @@ import dlib
 import os
 import time
 
-output_folder = "C:\\Users\\jrmun\\Desktop\\test"
+output_folder = "C:\\Users\\jrmun\\Desktop\\Calibration_data"
 
 # Initialize Dlib's face detector and facial landmarks predictor
 face_detector = dlib.get_frontal_face_detector()
@@ -14,13 +14,24 @@ cap = cv2.VideoCapture(0)
 
 directions = ["00.Centre", "01.UpRight", "02.UpLeft", "03.Right", "04.Left", "05.DownRight", "06.DownLeft"]
 
-# Create folders for each direction
-for direction in directions:
-    os.makedirs(os.path.join(output_folder, direction), exist_ok=True)
+# Create a mapping for mirrored directions
+mirrored_directions = {
+    "01.UpRight": "02.UpLeft",
+    "02.UpLeft": "01.UpRight",
+    "03.Right": "04.Left",
+    "04.Left": "03.Right",
+    "05.DownRight": "06.DownLeft",
+    "06.DownLeft": "05.DownRight",
+    "00.Centre": "00.Centre",
+}
 
-def extract_left_eye(frame, landmarks, padding_ratio=0.2):
-    # Left eye landmarks (from 36 to 41)
-    points = landmarks.parts()[36:42]
+# Create folders for each direction and eye
+for eye in ["left", "right"]:
+    for direction in directions:
+        os.makedirs(os.path.join(output_folder, eye, direction), exist_ok=True)
+
+def extract_eye(frame, landmarks, eye_points, padding_ratio=0.2):
+    points = [landmarks.part(point) for point in eye_points]
     x_coords = [point.x for point in points]
     y_coords = [point.y for point in points]
 
@@ -40,15 +51,18 @@ def extract_left_eye(frame, landmarks, padding_ratio=0.2):
     y_min = max(y_min - padding_y, 0)
     y_max = min(y_max + padding_y, frame.shape[0])
 
-    # Crop the left eye region with padding
-    left_eye = frame[y_min:y_max, x_min:x_max]
+    # Crop the eye region with padding
+    eye = frame[y_min:y_max, x_min:x_max]
 
-    return left_eye
+    return eye
 
-def save_image(direction, image):
-    save_path = os.path.join(output_folder, direction)
+def save_image(eye, direction, image):
+    # Get the mirrored direction from the mapping
+    mirrored_direction = mirrored_directions[direction]
+
+    save_path = os.path.join(output_folder, eye, mirrored_direction)
     file_count = len(os.listdir(save_path))
-    cv2.imwrite(os.path.join(save_path, f"{direction}_{file_count + 1}.jpg"), image)
+    cv2.imwrite(os.path.join(save_path, f"{mirrored_direction}_{file_count + 1}.jpg"), image)
 
 def display_countdown(frame, seconds_left):
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -92,9 +106,11 @@ for direction in directions:
                 face = faces[0]
                 landmarks = landmark_predictor(frame, face)
 
-                left_eye_image = extract_left_eye(frame, landmarks)
+                left_eye_image = extract_eye(frame, landmarks, list(range(36, 42)))
+                right_eye_image = extract_eye(frame, landmarks, list(range(42, 48)))
 
-                save_image(direction, left_eye_image)
+                save_image("left", direction, left_eye_image)
+                save_image("right", direction, right_eye_image)
                 image_count += 1
 
                 if image_count == images_per_direction:
@@ -110,7 +126,4 @@ for direction in directions:
 
 cap.release()
 cv2.destroyAllWindows()
-
-
-
 
