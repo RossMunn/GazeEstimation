@@ -3,9 +3,11 @@ import dlib
 import imutils
 import numpy as np
 import os
-import time
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array
+from tensorflow.keras.optimizers import SGD
+
+
 
 # Define test data generator
 test_datagen = ImageDataGenerator(rescale=1./255)
@@ -26,20 +28,6 @@ test_generator = test_datagen.flow_from_directory(
 
 # Create class labels
 class_labels = {v: k for k, v in test_generator.class_indices.items()}
-
-# Define the calibration data generator
-calibration_data_dir = 'C:\\Users\\jrmun\\Desktop\\Calibration_data'
-
-calibration_datagen = ImageDataGenerator(rescale=1./255)
-
-calibration_generator = calibration_datagen.flow_from_directory(
-    calibration_data_dir,
-    target_size=target_size,
-    batch_size=BATCH_SIZE,
-    class_mode='categorical',
-    color_mode='grayscale',
-    shuffle=True
-)
 
 predictor_path = "C:\\Users\\jrmun\\PycharmProjects\\Disso\\extractorModels\\shape_predictor_68_face_landmarks.dat"
 detector = dlib.get_frontal_face_detector()
@@ -64,6 +52,29 @@ def preprocess_eye(image, eye_points, padding_ratio=0.2):
 
     return eye
 
+def fine_tune_model(model, calibration_dir, batch_size=32, epochs=5, target_size=(42, 50)):
+    # Define calibration data generator
+    calibration_datagen = ImageDataGenerator(rescale=1./255)
+
+    calibration_generator = calibration_datagen.flow_from_directory(
+        calibration_dir,
+        target_size=target_size,
+        batch_size=batch_size,
+        class_mode='categorical',
+        color_mode='grayscale',
+        shuffle=True
+    )
+
+    # Compile the model with a smaller learning rate for fine-tuning
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=SGD(learning_rate=1e-5, momentum=0.9),
+                  metrics=['accuracy'])
+
+    # Fine-tune the model
+    model.fit(calibration_generator, epochs=epochs)
+
+    return model
+
 # Load left eye model
 model_path_left = 'C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model_left.h5'
 model_left = load_model(model_path_left)
@@ -72,40 +83,12 @@ model_left = load_model(model_path_left)
 model_path_right = 'C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model_right.h5'
 model_right = load_model(model_path_right)
 
-# Fine-tuning parameters
-fine_tune_epochs = 5
-initial_epochs = 20
-total_epochs = initial_epochs + fine_tune_epochs
+# Fine-tune the models with calibration data
+calibration_dir_left = 'C:\\Users\\jrmun\\Desktop\\Calibration_data\\left_eye'
+calibration_dir_right = 'C:\\Users\\jrmun\\Desktop\\Calibration_data\\right_eye'
 
-# Fine-tune left eye model
-print("Fine-tuning left eye model")
-model_left.fit(
-    calibration_generator,
-    epochs=total_epochs,
-    initial_epoch=initial_epochs,
-    steps_per_epoch=len(calibration_generator)
-)
-
-# Fine-tune right eye model
-print("Fine-tuning right eye model")
-model_right.fit(
-    calibration_generator,
-    epochs=total_epochs,
-    initial_epoch=initial_epochs,
-    steps_per_epoch=len(calibration_generator)
-)
-
-#Save the fine-tuned models
-model_left.save('fine_tuned_eye_gaze_model_left.h5')
-model_right.save('fine_tuned_eye_gaze_model_right.h5')
-
-#Load fine-tuned left eye model
-model_path_left = 'C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\fine_tuned_eye_gaze_model_left.h5'
-model_left = load_model(model_path_left)
-
-#Load fine-tuned right eye model
-model_path_right = 'C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\fine_tuned_eye_gaze_model_right.h5'
-model_right = load_model(model_path_right)
+model_left = fine_tune_model(model_left, calibration_dir_left)
+model_right = fine_tune_model(model_right, calibration_dir_right)
 
 cap = cv2.VideoCapture(0)
 
@@ -114,6 +97,8 @@ while True:
     if not ret:
         break
 
+    # Flip the frame horizontally
+    frame = cv2.flip(frame, 1)
     frame = imutils.resize(frame, width=800)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -133,7 +118,28 @@ while True:
         # Calculate the average score
         score = (prediction_left + prediction_right) / 2
 
-        eye_direction = class_labels[np.argmax(score)]
+        # Combine the upleft and upright predictions into an up prediction, and the downright and downleft predictions into a down prediction
+        upleft_index = list(class_labels.keys())[list(class_labels.values()).index('02.UpLeft')]
+        upright_index = list(class_labels.keys())[list(class_labels.values()).index('01.UpRight')]
+        downleft_index = list(class_labels.keys())[list(class_labels.values()).index('06.DownLeft')]
+        downright_index = list(class_labels.keys())[list(class_labels.values()).index('05.DownRight')]
+        left_index = list(class_labels.keys())[list(class_labels.values()).index('04.Left')]
+        right_index = list(class_labels.keys())[list(class_labels.values()).index('03.Right')]
+        center_index = list(class_labels.keys())[list(class_labels.values()).index('00.Centre')]
+
+        if np.argmax(score) in (upleft_index, upright_index):
+            eye_direction = 'Up'
+        elif np.argmax(score) in (downleft_index, downright_index):
+            eye_direction = 'Down'
+        elif np.argmax(score) == left_index:
+            eye_direction = 'Left'
+        elif np.argmax(score) == right_index:
+            eye_direction = 'Right'
+        elif np.argmax(score) == center_index:
+            eye_direction = 'Centre'
+        else:
+            # Find the class with the maximum probability
+            eye_direction = class_labels[np.argmax(score)]
 
         cv2.putText(frame, eye_direction, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
@@ -144,3 +150,5 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+
