@@ -7,7 +7,15 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array
 from tensorflow.keras.optimizers import SGD
 
+def get_user_input():
+    print("Please choose which model(s) to use for gaze estimation:")
+    print("1. Left eye model")
+    print("2. Right eye model")
+    print("3. Both models (averaging)")
+    choice = int(input("Enter the number of your choice: "))
+    return choice
 
+user_choice = get_user_input()
 
 # Define test data generator
 test_datagen = ImageDataGenerator(rescale=1./255)
@@ -115,10 +123,28 @@ while True:
         prediction_left = model_left.predict(left_eye)
         prediction_right = model_right.predict(right_eye)
 
-        # Calculate the average score
-        score = (prediction_left + prediction_right) / 2
+        if user_choice == 1:
+            score = prediction_left
+            # Draw a rectangle around the left eye
+            left_eye_rect = cv2.boundingRect(np.array([(point.x, point.y) for point in left_eye_points]))
+            cv2.rectangle(frame, (left_eye_rect[0], left_eye_rect[1]), (left_eye_rect[0] + left_eye_rect[2], left_eye_rect[1] + left_eye_rect[3]), (0, 255, 0), 2)
+        elif user_choice == 2:
+            score = prediction_right
+            # Draw a rectangle around the right eye
+            right_eye_rect = cv2.boundingRect(np.array([(point.x, point.y) for point in right_eye_points]))
+            cv2.rectangle(frame, (right_eye_rect[0], right_eye_rect[1]), (right_eye_rect[0] + right_eye_rect[2], right_eye_rect[1] + right_eye_rect[3]), (0, 255, 0), 2)
+        elif user_choice == 3:
+            score = (prediction_left + prediction_right) / 2
+            # Draw rectangles around both eyes
+            left_eye_rect = cv2.boundingRect(np.array([(point.x, point.y) for point in left_eye_points]))
+            cv2.rectangle(frame, (left_eye_rect[0], left_eye_rect[1]), (left_eye_rect[0] + left_eye_rect[2], left_eye_rect[1] + left_eye_rect[3]), (0, 255, 0), 2)
+            right_eye_rect = cv2.boundingRect(np.array([(point.x, point.y) for point in right_eye_points]))
+            cv2.rectangle(frame, (right_eye_rect[0], right_eye_rect[1]), (right_eye_rect[0] + right_eye_rect[2], right_eye_rect[1] + right_eye_rect[3]), (0, 255, 0), 2)
+        else:
+            print("Invalid choice. Exiting.")
+            break
 
-        # Combine the upleft and upright predictions into an up prediction, and the downright and downleft predictions into a down prediction
+        # Calculate the average score
         upleft_index = list(class_labels.keys())[list(class_labels.values()).index('02.UpLeft')]
         upright_index = list(class_labels.keys())[list(class_labels.values()).index('01.UpRight')]
         downleft_index = list(class_labels.keys())[list(class_labels.values()).index('06.DownLeft')]

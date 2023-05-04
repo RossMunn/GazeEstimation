@@ -5,21 +5,21 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.models import load_model
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 def create_eye_gaze_model():
     model = models.Sequential()
 
     model.add(layers.Conv2D(24, (7, 7), activation='relu', padding='same', input_shape=(42, 50, 1)))
-    model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
 
     model.add(layers.Conv2D(64, (5, 5), activation='relu', padding='same'))
-    model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
 
     model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
-    model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
+
 
     model.add(layers.Flatten())
     model.add(layers.Dense(256, activation='relu'))
@@ -61,6 +61,8 @@ BATCH_SIZE = 32
 EPOCHS = 80
 target_size = (42, 50)
 
+
+ #Augmentation
 data_generator = ImageDataGenerator(
     rescale=1./255,
     width_shift_range=0.1,
@@ -148,3 +150,19 @@ y_pred_labels = np.argmax(y_pred, axis=1)
 from sklearn.metrics import classification_report
 target_names = test_generator.class_indices.keys()
 print(classification_report(y_true, y_pred_labels, target_names=target_names))
+
+
+
+# Compute the confusion matrix
+conf_mat = confusion_matrix(y_true, y_pred_labels)
+
+# Normalize the confusion matrix
+conf_mat_normalized = conf_mat.astype('float') / conf_mat.sum(axis=1)[:, np.newaxis]
+
+# Plot the confusion matrix using a heatmap
+plt.figure(figsize=(8, 8))
+sns.heatmap(conf_mat_normalized, annot=True, cmap='Blues', fmt='.2f', xticklabels=target_names, yticklabels=target_names)
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.title('Confusion Matrix')
+plt.show()
