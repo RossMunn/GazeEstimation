@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -62,17 +63,16 @@ EPOCHS = 80
 target_size = (42, 50)
 
 
- #Augmentation
+# Augmentation
 data_generator = ImageDataGenerator(
     rescale=1./255,
+    rotation_range=10,  # Add rotation_range for rotations
     width_shift_range=0.1,
     height_shift_range=0.1,
-    shear_range=0.1,
     zoom_range=0.1,
-    #horizontal_flip=True,
-    #vertical_flip=True,
-    brightness_range=(0.8, 1.2),  # Add brightness_range
-    fill_mode='nearest'
+    shear_range=0.1,
+    fill_mode='nearest',
+    preprocessing_function=lambda x: np.clip(x + np.random.normal(0, 5, x.shape), 0, 255)  # Add blurring using Gaussian noise
 )
 
 train_generator = data_generator.flow_from_directory(
@@ -143,7 +143,6 @@ y_pred = loaded_model.predict(test_generator)
 y_true = test_generator.classes
 
 #Convert the predicted probabilities to class labels
-import numpy as np
 y_pred_labels = np.argmax(y_pred, axis=1)
 
 #Print the classification report

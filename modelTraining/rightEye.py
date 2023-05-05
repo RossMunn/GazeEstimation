@@ -66,8 +66,6 @@ data_generator = ImageDataGenerator(
     height_shift_range=0.1,
     shear_range=0.1,
     zoom_range=0.1,
-    #horizontal_flip=True,
-    #vertical_flip=True,
     brightness_range=(0.8, 1.2),  # Add brightness_range
     fill_mode='nearest'
 )
