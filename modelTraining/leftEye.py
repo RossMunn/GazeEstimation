@@ -8,6 +8,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.models import load_model
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
+from sklearn.metrics import classification_report
 
 def create_eye_gaze_model():
     model = models.Sequential()
@@ -24,9 +25,7 @@ def create_eye_gaze_model():
 
     model.add(layers.Flatten())
     model.add(layers.Dense(256, activation='relu'))
-    model.add(layers.Dropout(0.5))
     model.add(layers.Dense(128, activation='relu'))
-    model.add(layers.Dropout(0.5))
 
     model.add(layers.Dense(NUM_CLASSES, activation='softmax'))
 
@@ -146,7 +145,6 @@ y_true = test_generator.classes
 y_pred_labels = np.argmax(y_pred, axis=1)
 
 #Print the classification report
-from sklearn.metrics import classification_report
 target_names = test_generator.class_indices.keys()
 print(classification_report(y_true, y_pred_labels, target_names=target_names))
 
@@ -163,5 +161,5 @@ plt.figure(figsize=(8, 8))
 sns.heatmap(conf_mat_normalized, annot=True, cmap='Blues', fmt='.2f', xticklabels=target_names, yticklabels=target_names)
 plt.xlabel('Predicted')
 plt.ylabel('True')
-plt.title('Confusion Matrix')
+plt.title('Normalized Confusion Matrix')
 plt.show()
