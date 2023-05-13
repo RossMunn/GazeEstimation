@@ -3,7 +3,7 @@ import dlib
 import os
 import time
 
-output_folder = "C:\\Users\\jrmun\\Desktop\\EvalDataset"
+output_folder = "C:\\Users\\jrmun\\Desktop\\eval2"
 
 # Initialize Dlib's face detector and facial landmarks predictor
 face_detector = dlib.get_frontal_face_detector()
@@ -45,58 +45,58 @@ def display_countdown(frame, seconds_left):
     text = f"Capturing in {seconds_left} seconds"
     text_size = cv2.getTextSize(text, font, 1, 2)[0]
     x = (frame.shape[1] - text_size[0]) // 2
-    y = (frame.shape[0] - text_size[1]) // 2
+    y = (frame.shape[0] + text_size[1]) // 2
 
     cv2.putText(frame, text, (x, y), font, 1, (255, 255, 255), 2)
 
 images_per_direction = 1
+rounds = 20  # Number of rounds to capture image per direction
 
 for direction in directions:
     print(f"Look at the {direction} direction.")
 
-    countdown_start = time.time()
-    countdown_seconds = 5
-    image_count = 0
+    for _ in range(rounds):  # Adding a loop to iterate for 20 rounds
+        countdown_start = time.time()
+        countdown_seconds = 5
+        image_count = 0
 
-    while image_count < images_per_direction:
-        # Capture frame from the webcam
-        ret, frame = cap.read()
+        while image_count < images_per_direction:
+            # Capture frame from the webcam
+            ret, frame = cap.read()
 
-        if not ret:
-            break
+            if not ret:
+                break
 
-        # Display the countdown timer
-        seconds_left = countdown_seconds - int(time.time() - countdown_start)
-        if seconds_left > 0:
-            display_countdown(frame, seconds_left)
-        else:
-            # Detect faces in the frame
-            faces = face_detector(frame)
+            # Display the countdown timer
+            seconds_left = countdown_seconds - int(time.time() - countdown_start)
+            if seconds_left > 0:
+                display_countdown(frame, seconds_left)
+            else:
+                countdown_start = time.time()  # Reset the countdown
+                # Detect faces in the frame
+                faces = face_detector(frame)
 
-            # If a face is detected, find facial landmarks
-            if len(faces) > 0:
-                face = faces[0]
-                landmarks = landmark_predictor(frame, face)
+                # If a face is detected, find facial landmarks
+                if len(faces) > 0:
+                    face = faces[0]
+                    landmarks = landmark_predictor(frame, face)
 
-                image = extract_image(frame)
+                    image = extract_image(frame)
 
-                save_image_direction(direction, image)
-                image_count += 1
+                    save_image_direction(direction, image)
+                    image_count += 1
 
-                if image_count == images_per_direction:
-                    break
+            # Display the direction to look at
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(frame, f"Look {direction}", (10, 50), font, 1, (255, 255, 255), 2)
 
-        # Display the direction to look at
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(frame, f"Look {direction}", (10, 50), font, 1, (255, 255, 255), 2)
+            # Display the frame
+            cv2.imshow("Direction Gaze Calibration", frame)
+            key = cv2.waitKey(1) & 0xFF
 
-        # Display the frame
-        cv2.imshow("Direction Gaze Calibration", frame)
-        key = cv2.waitKey(1) & 0xFF
-
-        # Exit the loop if 'q' key is pressed
-        if key == ord('q'):
-            break
+            # Exit the loop if 'q' key is pressed
+            if key == ord('q'):
+                break
 
 cap.release()
 cv2.destroyAllWindows()

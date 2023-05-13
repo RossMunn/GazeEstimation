@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -7,6 +8,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.models import load_model
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
+from sklearn.metrics import classification_report
 
 def create_eye_gaze_model():
     model = models.Sequential()
@@ -20,11 +22,10 @@ def create_eye_gaze_model():
     model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
     model.add(layers.MaxPooling2D((2, 2)))
 
+
     model.add(layers.Flatten())
     model.add(layers.Dense(256, activation='relu'))
-    model.add(layers.Dropout(0.5))
     model.add(layers.Dense(128, activation='relu'))
-    model.add(layers.Dropout(0.5))
 
     model.add(layers.Dense(NUM_CLASSES, activation='softmax'))
 
@@ -60,14 +61,17 @@ BATCH_SIZE = 32
 EPOCHS = 80
 target_size = (42, 50)
 
+
+# Augmentation
 data_generator = ImageDataGenerator(
     rescale=1./255,
+    rotation_range=10,  # Add rotation_range for rotations
     width_shift_range=0.1,
     height_shift_range=0.1,
-    shear_range=0.1,
     zoom_range=0.1,
-    brightness_range=(0.8, 1.2),  # Add brightness_range
-    fill_mode='nearest'
+    shear_range=0.1,
+    fill_mode='nearest',
+    preprocessing_function=lambda x: np.clip(x + np.random.normal(0, 5, x.shape), 0, 255)  # Add blurring using Gaussian noise
 )
 
 train_generator = data_generator.flow_from_directory(
@@ -138,11 +142,9 @@ y_pred = loaded_model.predict(test_generator)
 y_true = test_generator.classes
 
 #Convert the predicted probabilities to class labels
-import numpy as np
 y_pred_labels = np.argmax(y_pred, axis=1)
 
 #Print the classification report
-from sklearn.metrics import classification_report
 target_names = test_generator.class_indices.keys()
 print(classification_report(y_true, y_pred_labels, target_names=target_names))
 
@@ -159,5 +161,5 @@ plt.figure(figsize=(8, 8))
 sns.heatmap(conf_mat_normalized, annot=True, cmap='Blues', fmt='.2f', xticklabels=target_names, yticklabels=target_names)
 plt.xlabel('Predicted')
 plt.ylabel('True')
-plt.title('Confusion Matrix')
+plt.title('Normalized Confusion Matrix')
 plt.show()
