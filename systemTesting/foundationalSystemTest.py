@@ -4,6 +4,10 @@ import numpy as np
 from keras.models import load_model
 from keras.preprocessing.image import img_to_array
 import os
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
 
 # Load face detector and facial landmark predictor
 face_detector = dlib.get_frontal_face_detector()
@@ -47,6 +51,8 @@ def estimate_gaze(left_eye, right_eye):
 def process_images(images_folder):
     total_images = 0
     correct_predictions = 0
+    true_labels = []
+    predicted_labels = []
 
     # Dictionary to map gaze direction labels to numeric values
     gaze_mapping = {
@@ -97,12 +103,31 @@ def process_images(images_folder):
 
                 # Compare gaze with labels and calculate accuracy
                 predicted_gaze_direction = np.argmax(gaze)
-                if predicted_gaze_direction == gaze_mapping[gaze_direction]:
+                true_label = gaze_mapping[gaze_direction]
+                true_labels.append(true_label)
+                predicted_labels.append(predicted_gaze_direction)
+
+                if predicted_gaze_direction == true_label:
                     correct_predictions += 1
                 total_images += 1
 
     accuracy = correct_predictions / total_images
     print(f"Accuracy: {accuracy:.2%}")
+
+    # Create confusion matrix
+    cm = confusion_matrix(true_labels, predicted_labels)
+
+    # Convert to pandas DataFrame for better visualization
+    labels = list(gaze_mapping.keys())
+    cm_df = pd.DataFrame(cm, index=labels, columns=labels)
+
+    # Display confusion matrix heatmap
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm_df, annot=True, fmt="d", cmap="Blues")
+    plt.title("Confusion Matrix")
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+    plt.show()
 
 # Call the function with the path to your evaluation dataset
 process_images('C:\\Users\\jrmun\\Desktop\\EvalDataset')
