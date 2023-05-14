@@ -16,16 +16,21 @@ def create_eye_gaze_model():
     model.add(layers.Conv2D(24, (7, 7), activation='relu', padding='same', input_shape=(42, 50, 1)))
     model.add(layers.MaxPooling2D((2, 2)))
 
+    model.add(layers.Conv2D(48, (7, 7), activation='relu', padding='same'))
+    model.add(layers.MaxPooling2D((2, 2)))
+
     model.add(layers.Conv2D(64, (5, 5), activation='relu', padding='same'))
     model.add(layers.MaxPooling2D((2, 2)))
 
     model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
     model.add(layers.MaxPooling2D((2, 2)))
 
-
     model.add(layers.Flatten())
     model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dropout(0.1))
     model.add(layers.Dense(128, activation='relu'))
+    model.add(layers.Dropout(0.1))
+
 
     model.add(layers.Dense(NUM_CLASSES, activation='softmax'))
 
@@ -58,9 +63,8 @@ NUM_CLASSES = 7
 data_dir = 'C:\\Users\\jrmun\Desktop\\train_right'
 test_dir = 'C:\\Users\\jrmun\Desktop\\test_right'
 BATCH_SIZE = 32
-EPOCHS = 80
+EPOCHS = 100
 target_size = (42, 50)
-
 
 # Augmentation
 data_generator = ImageDataGenerator(
@@ -71,6 +75,7 @@ data_generator = ImageDataGenerator(
     zoom_range=0.1,
     shear_range=0.1,
     fill_mode='nearest',
+    brightness_range=(0.8, 1.2),  # Add brightness_range
     preprocessing_function=lambda x: np.clip(x + np.random.normal(0, 5, x.shape), 0, 255)  # Add blurring using Gaussian noise
 )
 
@@ -161,5 +166,5 @@ plt.figure(figsize=(8, 8))
 sns.heatmap(conf_mat_normalized, annot=True, cmap='Blues', fmt='.2f', xticklabels=target_names, yticklabels=target_names)
 plt.xlabel('Predicted')
 plt.ylabel('True')
-plt.title('Normalized Confusion Matrix')
+plt.title('Confusion Matrix')
 plt.show()

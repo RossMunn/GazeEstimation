@@ -2,7 +2,8 @@ import cv2
 import dlib
 import numpy as np
 from keras.models import load_model
-from keras.preprocessing.image import img_to_array
+from keras.preprocessing.image import img_to_array, ImageDataGenerator
+from keras.optimizers import SGD
 import os
 import pandas as pd
 import seaborn as sns
@@ -11,7 +12,8 @@ from sklearn.metrics import confusion_matrix
 
 # Load face detector and facial landmark predictor
 face_detector = dlib.get_frontal_face_detector()
-landmark_predictor = dlib.shape_predictor('C:\\Users\\jrmun\\PycharmProjects\\Disso\\extractorModels\\shape_predictor_68_face_landmarks.dat')
+landmark_predictor = dlib.shape_predictor(
+    'C:\\Users\\jrmun\\PycharmProjects\\Disso\\extractorModels\\shape_predictor_68_face_landmarks.dat')
 
 # Load left eye model
 model_path_left = 'C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model_left.h5'
@@ -20,6 +22,7 @@ model_left = load_model(model_path_left)
 # Load right eye model
 model_path_right = 'C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model_right.h5'
 model_right = load_model(model_path_right)
+
 
 def preprocess_eye(image, eye_points, padding_ratio=0.2):
     eye_region = np.array([(point.x, point.y) for point in eye_points])
@@ -40,19 +43,51 @@ def preprocess_eye(image, eye_points, padding_ratio=0.2):
 
     return eye
 
-# Function to estimate gaze using left and right eye models
+
 def estimate_gaze(left_eye, right_eye):
     left_gaze = model_left.predict(left_eye)[0]
     right_gaze = model_right.predict(right_eye)[0]
     avg_gaze = (left_gaze + right_gaze) / 2.0
     return avg_gaze
 
-# Main function to process images and estimate gaze
+
+def fine_tune_model(model, calibration_data_folder):
+    datagen = ImageDataGenerator(rescale=1. / 255, validation_split=0.2)
+    train_data = datagen.flow_from_directory(
+        calibration_data_folder,
+        target_size=(50, 42),
+        color_mode="grayscale",
+        batch_size=15,
+        class_mode="categorical",
+        subset='training')
+
+    val_data = datagen.flow_from_directory(
+        calibration_data_folder,
+        target_size=(50, 42),
+        color_mode="grayscale",
+        batch_size=8,
+        class_mode="categorical",
+        subset='validation')
+
+    model.compile(loss="categorical_crossentropy", optimizer=SGD(), metrics=["accuracy"])
+    model.fit(train_data, validation_data=val_data, epochs=10)
+
+    return model
+
+# Define the paths to your calibration datasets
+calibration_data_folder_left = 'C:\\Users\\jrmun\\Desktop\\cali_left'
+calibration_data_folder_right = 'C:\\Users\\jrmun\\Desktop\\cali_right'
+
+# Fine-tune the models
+model_left = fine_tune_model(model_left, calibration_data_folder_left)
+model_right = fine_tune_model(model_right, calibration_data_folder_right)
+
 def process_images(images_folder):
     total_images = 0
     correct_predictions = 0
     true_labels = []
     predicted_labels = []
+    incorrect_image_paths = []
 
     # Dictionary to map gaze direction labels to numeric values
     gaze_mapping = {
@@ -109,10 +144,18 @@ def process_images(images_folder):
 
                 if predicted_gaze_direction == true_label:
                     correct_predictions += 1
+                else:
+                    incorrect_image_paths.append(image_path)
+
                 total_images += 1
 
     accuracy = correct_predictions / total_images
     print(f"Accuracy: {accuracy:.2%}")
+
+    # Print paths of incorrectly predicted images
+    print("Incorrectly predicted images:")
+    for image_path in incorrect_image_paths:
+        print(image_path)
 
     # Create confusion matrix
     cm = confusion_matrix(true_labels, predicted_labels)

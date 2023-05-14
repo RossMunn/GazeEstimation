@@ -3,7 +3,7 @@ import shutil
 from random import sample
 
 
-def create_test_sets(left_input_folder, right_input_folder, left_output_folder, right_output_folder, test_ratio=0.5):
+def create_test_sets(left_input_folder, right_input_folder, left_output_folder, right_output_folder, test_ratio=0.2):
     for input_folder, output_folder in [(left_input_folder, left_output_folder), (right_input_folder, right_output_folder)]:
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)

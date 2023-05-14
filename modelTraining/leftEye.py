@@ -22,10 +22,12 @@ def create_eye_gaze_model():
     model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
     model.add(layers.MaxPooling2D((2, 2)))
 
-
     model.add(layers.Flatten())
     model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dropout(0.1))
     model.add(layers.Dense(128, activation='relu'))
+    model.add(layers.Dropout(0.1))
+
 
     model.add(layers.Dense(NUM_CLASSES, activation='softmax'))
 
@@ -58,7 +60,7 @@ NUM_CLASSES = 7
 data_dir = 'C:\\Users\\jrmun\Desktop\\train_left'
 test_dir = 'C:\\Users\\jrmun\Desktop\\test_left'
 BATCH_SIZE = 32
-EPOCHS = 80
+EPOCHS = 100
 target_size = (42, 50)
 
 
@@ -71,6 +73,7 @@ data_generator = ImageDataGenerator(
     zoom_range=0.1,
     shear_range=0.1,
     fill_mode='nearest',
+    brightness_range=(0.8, 1.2),  # Add brightness_range
     preprocessing_function=lambda x: np.clip(x + np.random.normal(0, 5, x.shape), 0, 255)  # Add blurring using Gaussian noise
 )
 
