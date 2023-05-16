@@ -23,7 +23,6 @@ model_left = load_model(model_path_left)
 model_path_right = 'C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_gaze_model_right.h5'
 model_right = load_model(model_path_right)
 
-
 def preprocess_eye(image, eye_points, padding_ratio=0.2):
     eye_region = np.array([(point.x, point.y) for point in eye_points])
     x, y, w, h = cv2.boundingRect(eye_region)
@@ -43,13 +42,15 @@ def preprocess_eye(image, eye_points, padding_ratio=0.2):
 
     return eye
 
-
-def estimate_gaze(left_eye, right_eye):
-    left_gaze = model_left.predict(left_eye)[0]
-    right_gaze = model_right.predict(right_eye)[0]
-    avg_gaze = (left_gaze + right_gaze) / 2.0
-    return avg_gaze
-
+def estimate_gaze(left_eye, right_eye, choice):
+    if choice == "1":
+        return model_left.predict(left_eye)[0]
+    elif choice == "2":
+        return model_right.predict(right_eye)[0]
+    elif choice == "3":
+        left_gaze = model_left.predict(left_eye)[0]
+        right_gaze = model_right.predict(right_eye)[0]
+        return (left_gaze + right_gaze) / 2.0
 
 def fine_tune_model(model, calibration_data_folder):
     datagen = ImageDataGenerator(rescale=1. / 255, validation_split=0.3)
@@ -74,13 +75,31 @@ def fine_tune_model(model, calibration_data_folder):
 
     return model
 
+# Prompt user for their choice
+print("Please choose the eye model to use:")
+print("1. Left eye only")
+print("2. Right eye only")
+print("3. Both eyes with score averaging")
+user_choice = input("Your choice (1-3): ")
+
 # Define the paths to your calibration datasets
 calibration_data_folder_left = 'C:\\Users\\jrmun\\Desktop\\cali_left'
 calibration_data_folder_right = 'C:\\Users\\jrmun\\Desktop\\cali_right'
 
-# Fine-tune the models
-model_left = fine_tune_model(model_left, calibration_data_folder_left)
-model_right = fine_tune_model(model_right, calibration_data_folder_right)
+# Fine-tune the models based on the user's choice
+if user_choice == "1":
+    print("Fine-tuning left eye model...")
+    model_left = fine_tune_model(model_left, calibration_data_folder_left)
+elif user_choice == "2":
+    print("Fine-tuning right eye model...")
+    model_right = fine_tune_model(model_right, calibration_data_folder_right)
+elif user_choice == "3":
+    print("Fine-tuning both eye models...")
+    model_left = fine_tune_model(model_left, calibration_data_folder_left)
+    model_right = fine_tune_model(model_right, calibration_data_folder_right)
+else:
+    print("Invalid choice. Please run the script again.")
+    exit(1)
 
 def process_images(images_folder):
     total_images = 0
@@ -134,7 +153,7 @@ def process_images(images_folder):
                 right_eye = preprocess_eye(image, right_eye_points)
 
                 # Estimate gaze
-                gaze = estimate_gaze(left_eye, right_eye)
+                gaze = estimate_gaze(left_eye, right_eye, user_choice)
 
                 # Compare gaze with labels and calculate accuracy
                 predicted_gaze_direction = np.argmax(gaze)
@@ -174,3 +193,4 @@ def process_images(images_folder):
 
 # Call the function with the path to your evaluation dataset
 process_images('C:\\Users\\jrmun\\Desktop\\EvalDataset')
+
