@@ -58,7 +58,7 @@ def fine_tune_model(model, calibration_data_folder):
         calibration_data_folder,
         target_size=(50, 42),
         color_mode="grayscale",
-        batch_size=32,
+        batch_size=6,
         class_mode="categorical",
         subset='training')
 
@@ -66,7 +66,7 @@ def fine_tune_model(model, calibration_data_folder):
         calibration_data_folder,
         target_size=(50, 42),
         color_mode="grayscale",
-        batch_size=32,
+        batch_size=6,
         class_mode="categorical",
         subset='validation')
 

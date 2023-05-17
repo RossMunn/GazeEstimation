@@ -60,26 +60,26 @@ def preprocess_eye(image, eye_points, padding_ratio=0.2):
 
     return eye
 
-def fine_tune_model(model, calibration_dir, batch_size=32, epochs=5, target_size=(42, 50)):
-    # Define calibration data generator
-    calibration_datagen = ImageDataGenerator(rescale=1./255)
-
-    calibration_generator = calibration_datagen.flow_from_directory(
+def fine_tune_model(model, calibration_dir):
+    datagen = ImageDataGenerator(rescale=1. / 255, validation_split=0.3)
+    train_data = datagen.flow_from_directory(
         calibration_dir,
-        target_size=target_size,
-        batch_size=batch_size,
-        class_mode='categorical',
-        color_mode='grayscale',
-        shuffle=True
-    )
+        target_size=(50, 42),
+        color_mode="grayscale",
+        batch_size=6,
+        class_mode="categorical",
+        subset='training')
 
-    # Compile the model with a smaller learning rate for fine-tuning
-    model.compile(loss='categorical_crossentropy',
-                  optimizer=SGD(learning_rate=1e-5, momentum=0.9),
-                  metrics=['accuracy'])
+    val_data = datagen.flow_from_directory(
+        calibration_dir,
+        target_size=(50, 42),
+        color_mode="grayscale",
+        batch_size=6,
+        class_mode="categorical",
+        subset='validation')
 
-    # Fine-tune the model
-    model.fit(calibration_generator, epochs=epochs)
+    model.compile(loss="categorical_crossentropy", optimizer=SGD(), metrics=["accuracy"])
+    model.fit(train_data, validation_data=val_data, epochs=10)
 
     return model
 
@@ -92,8 +92,8 @@ model_path_right = 'C:\\Users\\jrmun\\PycharmProjects\\Disso\\Models\\best_eye_g
 model_right = load_model(model_path_right)
 
 # Fine-tune the models with calibration data
-calibration_dir_left = 'C:\\Users\\jrmun\\Desktop\\Calibration_data\\left_eye'
-calibration_dir_right = 'C:\\Users\\jrmun\\Desktop\\Calibration_data\\right_eye'
+calibration_dir_left = 'C:\\Users\\jrmun\\Desktop\\cali_left'
+calibration_dir_right = 'C:\\Users\\jrmun\\Desktop\\cali_right'
 
 model_left = fine_tune_model(model_left, calibration_dir_left)
 model_right = fine_tune_model(model_right, calibration_dir_right)
